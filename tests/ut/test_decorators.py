@@ -219,6 +219,23 @@ class TestCachedStampede:
         assert c.cache is cache
         assert c.lease == 3
 
+    @pytest.mark.parametrize("lease", [0, None])
+    async def test_lease_zero_or_none_does_not_lock(self, lease):
+        calls = 0
+        decorator = cached_stampede(cache=SimpleMemoryCache(), lease=lease)
+
+        async def work():
+            nonlocal calls
+            calls += 1
+            await asyncio.sleep(0.05)
+            return calls
+
+        wrapped = decorator(work)
+
+        await asyncio.gather(wrapped(), wrapped())
+
+        assert calls == 2
+
     async def test_calls_get_and_returns(self, decorator, decorator_call):
         decorator.cache.get.return_value = 1
 

@@ -133,6 +133,9 @@ class cached_stampede(cached):
         self.lease = lease
 
     async def decorator(self, f, *args, **kwargs):
+        if self.lease is None or self.lease == 0:
+            return await super().decorator(f, *args, **kwargs)
+
         key = self.get_cache_key(f, args, kwargs)
 
         value = await self.get_from_cache(key)
