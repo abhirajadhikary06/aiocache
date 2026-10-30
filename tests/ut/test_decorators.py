@@ -232,9 +232,36 @@ class TestCachedStampede:
 
         wrapped = decorator(work)
 
-        await asyncio.gather(wrapped(), wrapped())
+        with patch("aiocache.decorators.RedLock", autospec=True) as redlock:
+            await asyncio.gather(wrapped(), wrapped())
 
         assert calls == 2
+        redlock.assert_not_called()
+
+    @pytest.mark.parametrize("lease", [0, None])
+    async def test_disabled_lease_forwards_function_keywords(self, lease):
+        decorator = cached_stampede(cache=SimpleMemoryCache(), lease=lease)
+
+        async def work(cache_read, cache_write, aiocache_wait_for_write):
+            await asyncio.sleep(0.05)
+            return cache_read, cache_write, aiocache_wait_for_write
+
+        wrapped = decorator(work)
+        expected = (False, False, False)
+        results = await asyncio.gather(
+            wrapped(
+                cache_read=expected[0],
+                cache_write=expected[1],
+                aiocache_wait_for_write=expected[2],
+            ),
+            wrapped(
+                cache_read=expected[0],
+                cache_write=expected[1],
+                aiocache_wait_for_write=expected[2],
+            ),
+        )
+
+        assert results == [expected, expected]
 
     async def test_calls_get_and_returns(self, decorator, decorator_call):
         decorator.cache.get.return_value = 1
